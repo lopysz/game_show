@@ -1,0 +1,28 @@
+ROLETA MUSICAL — TIKTOK LIVE
+
+1. Instale Node.js LTS (https://nodejs.org/) no Windows.
+2. Extraia esta pasta para um local permanente.
+3. Dê dois cliques em iniciar.bat. Na primeira vez, ele instala as dependências.
+4. A página abre no navegador. Abra o painel pelo botão de engrenagem ou tecla C.
+5. Em “Conexão TikTok LIVE”, informe o @ da conta que está transmitindo e clique Conectar.
+6. No OBS, adicione uma Fonte de Navegador com URL http://127.0.0.1:21213 e tamanho 1080 x 1920 (ou capture a janela do navegador). Para a captura via navegador, deixe o servidor rodando.
+
+REGRAS IMPLEMENTADAS
+- Uma Rosa por usuário por rodada libera a participação naquela rodada.
+- Rosas extras da mesma pessoa na mesma rodada não dão entradas extras.
+- A cada nova rodada, a elegibilidade é zerada: é necessária uma nova Rosa.
+- Comentários são avaliados enquanto a rodada está aberta. Quem não enviou Rosa pode assistir e comentar, mas não pontua.
+- Acerto automático soma 10 pontos; o ranking fica salvo no navegador durante a sessão e entre aberturas no mesmo perfil.
+- Respostas alternativas podem ser separadas por | ou ; no campo de resposta da pergunta (editor de perguntas).
+
+MÚSICA
+- Para evitar os bloqueios/limitações de players incorporados, a página toca arquivos de áudio locais selecionados no painel.
+- Também pode tocar Spotify/YouTube separadamente e capturar o áudio no OBS. O jogo não contorna DRM, bloqueios de incorporação ou regras de autoplay dessas plataformas.
+
+LIMITAÇÕES IMPORTANTES
+- A conexão usa uma biblioteca comunitária não oficial, não uma integração autorizada/garantida pelo TikTok. Mudanças no TikTok podem interromper a conexão.
+- A conta precisa estar transmitindo e o perfil/live deve estar acessível ao conector.
+- O reconhecimento da Rosa usa o ID 5655 e os nomes “Rose”/“Rosa”. Se a região/versão da plataforma usar outro identificador, o evento pode aparecer no log do conector, mas a qualificação precisará ser ajustada.
+- O reconhecimento automático compara o comentário com a resposta cadastrada, ignorando acentos e maiúsculas. Não entende sinônimos nem respostas discursivas. Para perguntas abertas, use avaliação manual.
+- Mantenha a janela preta do terminal aberta enquanto estiver usando a integração. Fechar o terminal encerra o conector.
+- O servidor escuta somente em 127.0.0.1; não exponha esta porta publicamente.

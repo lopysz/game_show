@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roleta Musical</title>
+<style>
+:root{--vin:#4a1230;--rox:#2b1450;--ouro:#e0aa45;--cre:#f4e8d0;--noi:#0b0e2a;--neon:#ff4f9a}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:#05060f;color:var(--cre);font-family:Georgia,"Times New Roman",serif;overflow:hidden}
+body{display:grid;place-items:center}
+/* Palco 9:16 — tudo dentro dele usa cqw/cqh, então escala em qualquer tela */
+#stage{height:min(100vh,100vw*16/9);aspect-ratio:9/16;container-type:size;position:relative;display:flex;flex-direction:column;align-items:center;padding:2.2cqh 4cqw 1.8cqh;gap:1.2cqh;overflow:hidden;
+background:radial-gradient(120% 60% at 50% 28%,var(--rox),transparent 70%),radial-gradient(90% 50% at 50% 105%,var(--vin),transparent 70%),var(--noi)}
+#stage::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-radial-gradient(circle at 50% 30%,rgba(255,255,255,.025) 0 1px,transparent 1px 7px)}
+header{text-align:center;position:relative;z-index:1}
+h1{font-size:9cqw;letter-spacing:.05em;line-height:1;background:linear-gradient(#ffe7a6,var(--ouro) 60%,#a8741c);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 3cqw rgba(224,170,69,.25)}
+.sub{font-style:italic;font-size:3.3cqw;opacity:.8;margin-top:.5cqh}
+.pills{display:flex;gap:2cqw;justify-content:center;margin-top:1cqh;font-size:2.8cqw}
+.pills span{border:1px solid rgba(224,170,69,.5);border-radius:5cqw;padding:.5cqh 3cqw;background:rgba(0,0,0,.3)}
+#md.on{color:var(--neon);border-color:var(--neon);box-shadow:0 0 2cqw rgba(255,79,154,.4)}
+#liveBadge{font-weight:bold}#liveBadge.live{color:#8cffb0;border-color:#8cffb0}#ttFeed{font:12px/1.4 system-ui,sans-serif;color:#eee;background:#0c0920;padding:7px;border-radius:6px}#ttFeed div{padding:2px 0;border-bottom:1px solid #ffffff12}#musicLabel{font-size:12px;opacity:.8}
+#wh{position:relative;width:76cqw;aspect-ratio:1;flex:none;border-radius:50%;box-shadow:0 0 5cqw rgba(224,170,69,.22),0 0 12cqw rgba(255,79,154,.13)}
+#cv{width:100%;height:100%;display:block}
+#pt{position:absolute;top:-1.6cqw;left:50%;transform:translateX(-50%);border-left:2.6cqw solid transparent;border-right:2.6cqw solid transparent;border-top:6cqw solid var(--ouro);filter:drop-shadow(0 .4cqw .6cqw #000);z-index:3}
+#hub{position:absolute;inset:38%;border-radius:50%;background:radial-gradient(circle,var(--ouro) 0 12%,var(--vin) 13%);border:.7cqw solid var(--ouro);display:grid;place-items:center;font-size:7cqw;color:var(--cre);z-index:2}
+#ann{position:absolute;inset:0;display:grid;place-items:center;font-size:9cqw;font-weight:bold;text-shadow:0 0 3cqw #000;pointer-events:none;opacity:0;z-index:4}
+#ann.go{animation:ann 1.6s ease-out}
+@keyframes ann{0%{opacity:0;transform:scale(.6)}20%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(1.15)}}
+#card{flex:1;min-height:0;width:100%;display:grid;grid-template-columns:1fr 19cqw;gap:3cqw;align-items:center;padding:2.6cqw 3cqw;border:1px solid rgba(224,170,69,.45);border-radius:3cqw;background:linear-gradient(145deg,rgba(0,0,0,.5),rgba(43,20,80,.4));position:relative;z-index:1}
+#card.ok{animation:ok 1s}
+@keyframes ok{0%,100%{box-shadow:none}30%{box-shadow:0 0 6cqw var(--ouro),inset 0 0 4cqw rgba(224,170,69,.4)}}
+#cat{display:inline-block;padding:.4cqh 3cqw;border-radius:5cqw;font-size:3cqw;font-weight:bold;color:#fff;text-shadow:0 1px 2px #0008}
+#tp{font-style:italic;font-size:3cqw;opacity:.75;margin:.8cqh 0 .4cqh}
+#q{font-size:4.5cqw;line-height:1.25}
+#an{font-size:4.2cqw;color:var(--ouro);margin-top:1cqh;opacity:0;transform:translateY(1cqh);transition:.6s}
+#an.show{opacity:1;transform:none}
+#an::before{content:"Resposta: ";color:var(--cre);opacity:.7;font-size:3cqw}
+#tm{--p:100;width:19cqw;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--ouro) calc(var(--p)*1%),rgba(255,255,255,.12) 0);position:relative}
+#tm::after{content:"";position:absolute;inset:9%;border-radius:50%;background:var(--noi)}
+#tm span{position:relative;z-index:1;font-size:8cqw;font-weight:bold}
+#tm.low{background:conic-gradient(var(--neon) calc(var(--p)*1%),rgba(255,255,255,.12) 0);animation:pl 1s infinite}
+@keyframes pl{50%{transform:scale(1.06)}}
+.rv{position:absolute;right:3cqw;bottom:-1.6cqh;font:inherit;font-size:2.6cqw;background:var(--ouro);color:#2a1400;border:0;border-radius:4cqw;padding:.7cqh 3cqw;cursor:pointer}
+.hov{opacity:0;transition:.2s}#stage:hover .hov{opacity:1}
+footer{width:100%;display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:2cqw;font-size:2.7cqw;position:relative;z-index:1}
+footer>div{border-top:1px solid rgba(224,170,69,.4);padding-top:.8cqh;min-height:7cqh}
+footer b{display:block;color:var(--ouro);font-size:2.6cqw;margin-bottom:.3cqh}
+.hs{display:flex;gap:1cqw;flex-wrap:wrap}.hs i{font-style:normal;font-size:4cqw}
+/* Painel de controle (fora do palco; tecla C abre/fecha) */
+#pn{position:fixed;right:0;top:0;bottom:0;width:340px;background:#15112b;color:var(--cre);font:13px system-ui,sans-serif;padding:14px;overflow:auto;transform:translateX(105%);transition:.25s;z-index:9;border-left:1px solid #e0aa4566}
+#pn.open{transform:none}
+#pn h3{margin:14px 0 6px;color:var(--ouro);font-size:13px}
+#pn button,#pn input,#pn textarea{font:inherit;border-radius:6px;border:1px solid #6a5a8a;background:#241c45;color:var(--cre);padding:6px}
+#pn button{cursor:pointer}#pn button:hover{background:#3a2d6b}#pn button:disabled{opacity:.4}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:6px}.r{display:flex;gap:6px;align-items:center;margin:4px 0}.r input[type=number]{width:70px}.r input[type=range]{flex:1;padding:0}
+#pl .p{display:grid;grid-template-columns:1fr auto auto auto auto;gap:4px;align-items:center;margin:3px 0}
+#pl small{opacity:.7}
+#tg{position:fixed;right:8px;bottom:8px;z-index:10;opacity:.25;background:#000;color:#fff;border:0;border-radius:50%;width:34px;height:34px;cursor:pointer}#tg:hover{opacity:1}
+textarea{width:100%;height:200px;font:11px monospace}
+#hub{cursor:pointer;transition:.2s}#hub:hover{box-shadow:0 0 4cqw var(--ouro);transform:scale(1.05)}
+#pn .f{width:100%;margin:3px 0}#pn details{margin-top:6px}#pn summary{cursor:pointer;color:var(--ouro);margin:6px 0}
+#ql .p{display:grid;grid-template-columns:1fr auto;gap:4px;align-items:center;margin:3px 0}#ql small{opacity:.7}
+</style></head><body>
+<div id="stage">
+ <header>
+  <h1>ROLETA MUSICAL</h1>
+  <div class="sub">Uma viagem pela música brasileira</div>
+  <div class="pills"><span id="rd">Rodada 0</span><span id="md">MANUAL</span><span id="liveBadge">TIKTOK OFF</span></div>
+ </header>
+ <div id="wh"><div id="pt"></div><canvas id="cv"></canvas><div id="hub">♪</div><div id="ann"></div></div>
+ <div id="card">
+  <div><span id="cat"></span><div id="tp"></div><div id="q"></div><div id="an"></div></div>
+  <div id="tm"><span>--</span></div>
+  <button class="rv hov" id="bRv2">Revelar resposta</button>
+ </div>
+ <footer>
+  <div><b>Próxima rodada</b><span id="nx">Aguardando</span></div>
+  <div><b id="rkh">Pontuação</b><span id="rk"></span></div>
+  <div><b>Últimos sorteios</b><span class="hs" id="hs"></span></div>
+ </footer>
+</div>
+
+<button id="tg" title="Painel (tecla C)">⚙</button>
+<aside id="pn">
+ <h3>Jogo</h3>
+ <div class="g">
+  <button id="bSpin">Girar roleta</button><button id="bGo">Iniciar rodada</button>
+  <button id="bPa">Pausar</button><button id="bRe">Continuar</button>
+  <button id="bRv">Revelar resposta</button><button id="bNx">Próxima rodada</button>
+  <button id="bAu">Modo automático</button><button id="bSf">Sons: ligados</button>
+  <button id="bRs" style="grid-column:span 2">Reiniciar jogo</button>
+ </div>
+ <h3>Ajustes</h3>
+ <div class="r">Duração (s) <input type="number" id="cDur" min="5" max="300"> Intervalo (s) <input type="number" id="cGap" min="1" max="120"></div>
+ <div class="r">Velocidade <input type="range" id="cSp" min=".5" max="2" step=".1"></div>
+ <div class="r">Vol. efeitos <input type="range" id="cVs" min="0" max="1" step=".05"></div>
+ <div class="r">Vol. ambiente <input type="range" id="cVa" min="0" max="1" step=".05"></div>
+ <div class="r"><input type="file" id="fAm" accept="audio/*" style="width:210px"><button id="bAm">▶/❚❚</button></div>
+ <h3>Trilha sonora (sem bloqueio de embed)</h3>
+ <input type="file" id="musicFiles" class="f" accept="audio/*" multiple>
+ <div class="g"><button id="musicPlay">▶ Tocar / Pausar</button><button id="musicNext">Próxima faixa</button></div>
+ <div id="musicLabel" class="f">Nenhuma faixa carregada</div>
+ <small>Use MP3/WAV próprios. Spotify/YouTube não são incorporados porque os players podem bloquear reprodução automática ou captura no OBS. Alternativa: toque-os no aplicativo/navegador e capture o áudio no OBS.</small>
+ <audio id="musicPlayer" controls style="width:100%;margin-top:6px"></audio>
+ <h3>Conexão TikTok LIVE</h3>
+ <div class="r"><input id="ttUser" placeholder="@usuario da live" style="flex:1;min-width:0"><button id="ttConnect">Conectar</button></div>
+ <div id="ttStatus" class="f">Conector local não iniciado</div>
+ <div class="f" id="ttStats">Rosas nesta rodada: 0 · Respostas: 0</div>
+ <div id="ttFeed" class="f" style="max-height:130px;overflow:auto">Aguardando eventos da live…</div>
+ <small>Regra: 1 Rosa por pessoa em cada rodada. Só quem enviar a Rosa participa da pontuação daquela rodada. Comentários dos participantes são verificados automaticamente.</small>
+ <h3>Adicionar pergunta</h3>
+ <select id="aC" class="f"></select>
+ <input id="aT" class="f" list="tps" placeholder="Tipo (ex.: Adivinhe o artista)">
+ <datalist id="tps"><option value="Adivinhe o artista"><option value="Adivinhe a música"><option value="Complete o título"><option value="Descubra a década"><option value="Escolha entre dois"><option value="Verdadeiro ou falso"><option value="Desafio de nostalgia"><option value="Música para dedicar"></datalist>
+ <textarea id="aQ" class="f" style="height:64px" placeholder="Pergunta"></textarea>
+ <input id="aA" class="f" placeholder="Resposta">
+ <button id="bAq" class="f">Adicionar pergunta</button>
+ <details><summary>Ver / apagar perguntas desta categoria</summary><div id="ql"></div></details>
+ <details><summary>Nova categoria</summary>
+  <div class="r"><input id="nC" placeholder="Nome" style="flex:1;min-width:0"><input id="nI" placeholder="🎵" style="width:48px"><input id="nK" type="color" value="#8e2447" style="width:44px;padding:0"></div>
+  <div class="g"><button id="bNc">Adicionar categoria</button><button id="bRc">Remover a selecionada</button></div>
+ </details>
+ <h3>Ranking</h3>
+ <div class="r"><input id="pNm" placeholder="Nome do participante" style="flex:1"><button id="bAdd">Adicionar</button></div>
+ <div id="pl"></div>
+ <button id="bZr" style="width:100%;margin-top:6px">Zerar ranking</button>
+ <details><summary>Avançado: editar tudo em JSON</summary>
+ <small>Formato: {n: nome, c: cor, i: ícone, q: [[tipo, pergunta, resposta], ...]}</small>
+ <textarea id="js" spellcheck="false"></textarea>
+ <div class="g" style="margin-top:6px"><button id="bSv">Salvar</button><button id="bDf">Restaurar padrão</button></div></details>
+</aside>
+<audio id="am" loop></audio>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+
+/* ===== BANCO DE DESAFIOS (editável também pelo painel) ===== */
+const DEF=[
+["MPB Clássica","#8e2447","🎼",[["Adivinhe o artista","Quem canta \"Águas de Março\" em dueto com Tom Jobim?","Elis Regina (1974)"],["Adivinhe o compositor","Quem compôs \"Construção\"?","Chico Buarque"],["Verdadeiro ou falso","Cartola foi um dos fundadores da Mangueira.","Verdadeiro"]]],
+["Anos 80","#c2571a","📼",[["Adivinhe o artista","Quem era o vocalista da Legião Urbana?","Renato Russo"],["Adivinhe o artista","Quem canta \"Ideologia\" e \"O Tempo Não Para\"?","Cazuza"],["Qual a banda?","\"Pro Dia Nascer Feliz\" é de qual banda?","Barão Vermelho"]]],
+["Anos 90","#5b3fa6","💿",[["Adivinhe o artista","Quem canta \"Garota Nacional\"?","Skank"],["Adivinhe o artista","Quem cantou \"Pelados em Santos\"?","Mamonas Assassinas"],["Complete o autor","Quem compôs \"O Segundo Sol\", gravada por Cássia Eller?","Nando Reis"]]],
+["Anos 2000","#1f6f8b","📻",[["Adivinhe o artista","Quem canta \"Amor I Love You\"?","Marisa Monte"],["Curiosidade","Seu Jorge cantou Bowie em português em um filme de qual diretor?","Wes Anderson (A Vida Marinha)"],["Adivinhe a banda","\"Anna Júlia\" é de qual banda?","Los Hermanos"]]],
+["Sofrência","#a3283c","💔",[["Adivinhe o artista","Quem canta \"Evidências\"?","Chitãozinho & Xororó"],["Música para superar alguém","Qual música o chat indica para superar um fim?","Resposta livre: vale a mais votada no chat"],["Música para dedicar","Dedique uma música a quem está de coração partido.","Resposta livre: o chat escolhe"]]],
+["Voz e Violão","#7a5a1e","🎸",[["Adivinhe o compositor","\"Garota de Ipanema\" é de Tom Jobim e de quem?","Vinicius de Moraes"],["Adivinhe o artista","Quem canta \"Trem das Onze\"?","Adoniran Barbosa"],["Adivinhe o compositor","Quem compôs \"Wave\"?","Tom Jobim"]]],
+["Grandes Cantores","#2d5a8e","🎤",[["Adivinhe o artista","Quem é conhecido como o Rei da música brasileira?","Roberto Carlos"],["Adivinhe o artista","Quem canta \"Do Leme ao Pontal\"?","Tim Maia"],["Adivinhe o artista","Quem canta \"Taj Mahal\"?","Jorge Ben Jor"]]],
+["Grandes Cantoras","#9b3b86","🌹",[["Adivinhe a cantora","Quem gravou \"Como Nossos Pais\" em 1976?","Elis Regina"],["Adivinhe a cantora","Quem canta \"Baby\"?","Gal Costa"],["Verdadeiro ou falso","Maria Bethânia é irmã de Caetano Veloso.","Verdadeiro"]]],
+["Duetos","#b0562e","👥",[["Complete o dueto","Qual álbum Elis Regina e Tom Jobim lançaram juntos em 1974?","Elis & Tom"],["Descubra a década","Gil e Caetano lançaram \"Tropicália 2\" em qual década?","Anos 90 (1993)"],["Escolha entre dois","\"Águas de Março\": Elis & Tom ou Gil & Caetano?","Elis & Tom"]]],
+["Música de Novela","#3c7a5a","📺",[["Desafio de nostalgia","Cite uma música de novela que marcou sua geração.","Resposta livre: o chat vota"],["Desafio de nostalgia","Qual novela tinha a melhor abertura?","Resposta livre: o chat vota"],["Música que marcou","Qual tema de novela você ainda sabe cantar?","Resposta livre: o chat vota"]]],
+["Hits Brasileiros","#c49a1c","⭐",[["Adivinhe o artista","Quem canta \"Detalhes\"?","Roberto Carlos"],["Adivinhe o artista","Quem canta \"Ai Se Eu Te Pego\"?","Michel Teló"],["Descubra a década","\"Detalhes\" foi lançada em qual década?","Anos 70 (1971)"]]],
+["Surpresa","#6b2fb0","🎁",[["Curiosidade","Em qual cidade nasceu Chico Buarque?","Rio de Janeiro"],["Curiosidade","Gilberto Gil foi ministro de qual pasta?","Cultura (2003–2008)"],["Curiosidade","Qual apelido de Vinicius de Moraes?","Poetinha"]]]
+].map(([n,c,i,q])=>({n,c,i,q}));
+const CFG0={dur:30,gap:8,auto:false,sfx:true,speed:1,vs:.7,va:.3};
+
+/* ===== ESTADO E PERSISTÊNCIA (LocalStorage) ===== */
+let S;
+try{S=JSON.parse(localStorage.getItem("rm1"))}catch(e){}
+S=Object.assign({cats:JSON.parse(JSON.stringify(DEF)),players:[]},S||{});S.cfg=Object.assign({},CFG0,S.cfg||{});
+const save=()=>{try{localStorage.setItem("rm1",JSON.stringify(S))}catch(e){}};
+const G={phase:"idle",round:0,rot:0,ch:null,left:0,total:0,tok:0,t0:0,hist:[],lastKey:"",hl:-1,tmr:0,nx:0,cd:0,bl:0};
+
+/* ===== ÁUDIO (sintetizado, sem arquivos externos) ===== */
+let AC;
+function tone(f,d,ty="sine",v=.2,at=0){
+ if(!S.cfg.sfx)return;
+ try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();
+  const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+at;
+  o.type=ty;o.frequency.value=f;g.gain.setValueAtTime(v*S.cfg.vs,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
+  o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+d);}catch(e){}
+}
+const sfxStop=()=>[523,659,784].forEach((f,i)=>tone(f,.5,"triangle",.25,i*.09));
+const sfxOk=()=>[523,659,784,1047].forEach((f,i)=>tone(f,.3,"triangle",.25,i*.08));
+const sfxErr=()=>{tone(180,.35,"sawtooth",.18);tone(140,.4,"sawtooth",.18,.15)};
+
+/* ===== ROLETA (canvas) ===== */
+const cv=$("#cv"),cx=cv.getContext("2d");cv.width=cv.height=900;
+function draw(){
+ const n=S.cats.length,a=2*Math.PI/n,R=450;
+ cx.clearRect(0,0,900,900);cx.save();cx.translate(450,450);cx.rotate(G.rot);
+ S.cats.forEach((c,i)=>{
+  cx.beginPath();cx.moveTo(0,0);cx.arc(0,0,R-14,i*a,(i+1)*a);cx.closePath();
+  cx.fillStyle=c.c;cx.fill();cx.strokeStyle="rgba(0,0,0,.5)";cx.lineWidth=3;cx.stroke();
+  if(G.hl===i){cx.fillStyle="rgba(255,255,255,.35)";cx.fill()}
+  cx.save();cx.rotate((i+.5)*a);cx.textBaseline="middle";cx.shadowColor="rgba(0,0,0,.7)";cx.shadowBlur=6;cx.fillStyle="#fff";
+  cx.textAlign="right";cx.font="38px serif";cx.fillText(c.i,R-40,0);
+  cx.font="bold "+(n>14?20:28)+"px Georgia";cx.fillText(c.n,R-90,0);cx.restore();
+ });
+ // sulcos de vinil
+ for(let r=110;r<R-20;r+=22){cx.beginPath();cx.arc(0,0,r,0,7);cx.strokeStyle="rgba(0,0,0,.14)";cx.lineWidth=1;cx.stroke()}
+ cx.beginPath();cx.arc(0,0,R-14,0,7);cx.strokeStyle="#e0aa45";cx.lineWidth=8;cx.stroke();
+ cx.restore();
+}
+function spin(){
+ if(G.phase==="spin")return;           // evita giros sobrepostos
+ clr();const tk=++G.tok;G.phase="spin";G.round++;G.ch=null;G.hl=-1;ui();show();
+ const ann=$("#ann");ann.textContent="Rodada "+G.round;ann.classList.remove("go");void ann.offsetWidth;ann.classList.add("go");
+ const n=S.cats.length,a=2*Math.PI/n,i=Math.floor(Math.random()*n);
+ // ângulo final: centro do setor i (com folga) alinhado ao ponteiro no topo (-90°)
+ const tgt=-Math.PI/2-(i+.5+(Math.random()-.5)*.6)*a,r0=G.rot;
+ const d=(((tgt-r0)%(2*Math.PI))+2*Math.PI)%(2*Math.PI)+2*Math.PI*(5+Math.floor(Math.random()*3));
+ const T=5200/S.cfg.speed,t0=performance.now();let last=Math.floor((-Math.PI/2-r0)/a);
+ (function f(now){
+  if(tk!==G.tok)return;
+  const p=Math.min(1,(now-t0)/T);G.rot=r0+d*(1-Math.pow(1-p,3.4));draw();
+  const k=Math.floor((-Math.PI/2-G.rot)/a);if(k!==last){last=k;tone(950,.04,"square",.07)}
+  p<1?requestAnimationFrame(f):stopped(i,tk);
+ })(t0);
+}
+function stopped(i,tk){
+ if(tk!==G.tok)return;
+ sfxStop();G.hl=i;let k=0;
+ G.bl=setInterval(()=>{G.hl=k++%2?i:-1;if(k>7){clearInterval(G.bl);G.hl=i}draw()},170);
+ const cat=S.cats[i];let qi,key,tries=0;
+ do{qi=Math.floor(Math.random()*cat.q.length);key=i+":"+qi}while(key===G.lastKey&&cat.q.length>1&&++tries<20); // não repete o desafio seguido
+ G.lastKey=key;G.ch={cat,q:cat.q[qi]};G.phase="ready";ttEligible=0;ttAnswers=0;$("#ttStats").textContent="Rosas nesta rodada: 0 · Respostas: 0";ttSend({type:"roundStart",round:G.round,answer:G.ch.q[2]});G.total=G.left=S.cfg.dur*1000;ui();show();
+ if(S.cfg.auto)G.nx=setTimeout(()=>{if(tk===G.tok)startTimer()},1500);
+}
+
+/* ===== CRONÔMETRO E FLUXO DA RODADA ===== */
+function clr(){clearInterval(G.tmr);clearTimeout(G.nx);clearInterval(G.cd);clearInterval(G.bl);$("#nx").textContent="Aguardando"}
+function startTimer(){
+ if(G.phase!=="ready")return;
+ G.phase="play";G.t0=performance.now();loop();ui();
+}
+function loop(){
+ clearInterval(G.tmr);const tk=G.tok;let lastS=-1;
+ G.tmr=setInterval(()=>{
+  if(tk!==G.tok||G.phase!=="play"){clearInterval(G.tmr);return}
+  const now=performance.now();G.left-=now-G.t0;G.t0=now;
+  const s=Math.ceil(G.left/1000);if(s!==lastS){lastS=s;if(s<=5&&s>0)tone(700,.12,"sine",.2)}
+  if(G.left<=0){G.left=0;setTm();reveal();return}
+  setTm();
+ },100);
+}
+function pause(){if(G.phase==="play"){G.phase="paused";clearInterval(G.tmr);ui()}}
+function resume(){if(G.phase==="paused"){G.phase="play";G.t0=performance.now();loop();ui()}}
+function reveal(){
+ if(!["ready","play","paused"].includes(G.phase))return;
+ clearInterval(G.tmr);G.phase="reveal";ttSend({type:"roundEnd"});G.hist.push({i:G.ch.cat.i,n:G.ch.cat.n});
+ tone(660,.4,"triangle",.25);show();hist();ui();
+ if(S.cfg.auto)schedule();
+}
+function schedule(){ // intervalo entre rodadas (modo automático)
+ clearTimeout(G.nx);clearInterval(G.cd);const tk=G.tok;let s=S.cfg.gap;
+ const w=()=>$("#nx").textContent="Em "+s+"s";w();
+ G.cd=setInterval(()=>{s--;w();if(s<=0)clearInterval(G.cd)},1000);
+ G.nx=setTimeout(()=>{if(tk===G.tok&&S.cfg.auto)spin()},s*1000);
+}
+function reset(){clr();G.tok++;G.phase="idle";G.round=0;G.ch=null;G.hist=[];G.hl=-1;G.left=G.total=S.cfg.dur*1000;draw();ui();show();hist()}
+
+/* ===== INTERFACE ===== */
+function setTm(){
+ const p=G.total?G.left/G.total*100:100,t=$("#tm");
+ t.style.setProperty("--p",p);t.firstChild.textContent=G.ch?Math.ceil(G.left/1000):"--";
+ t.classList.toggle("low",G.phase==="play"&&G.left<=10000);
+}
+function show(){
+ const h=G.ch,c=$("#cat");
+ c.textContent=h?h.cat.i+" "+h.cat.n:"Pronto para girar";c.style.background=h?h.cat.c:"#5b3fa6";
+ $("#tp").textContent=h?h.q[0]:"Roleta Musical";
+ $("#q").textContent=h?h.q[1]:"Gire a roleta e descubra a categoria da rodada.";
+ $("#an").textContent=h?h.q[2]:"";$("#an").classList.toggle("show",G.phase==="reveal");
+ setTm();
+}
+function ui(){
+ $("#rd").textContent="Rodada "+G.round;
+ const m=$("#md");m.textContent=S.cfg.auto?"● AUTOMÁTICO":"MANUAL";m.classList.toggle("on",S.cfg.auto);
+ $("#bAu").textContent="Modo automático: "+(S.cfg.auto?"on":"off");
+ $("#bSf").textContent="Sons: "+(S.cfg.sfx?"ligados":"desligados");
+ const p=G.phase;
+ $("#bSpin").disabled=p==="spin";$("#bGo").disabled=p!=="ready";
+ $("#bPa").disabled=p!=="play";$("#bRe").disabled=p!=="paused";
+ $("#bRv").disabled=$("#bRv2").disabled=!["ready","play","paused"].includes(p);
+}
+function hist(){$("#hs").innerHTML=G.hist.slice(-6).reverse().map(h=>`<i title="${h.n}">${h.i}</i>`).join("")||"—"}
+function rank(){
+ const P=[...S.players].sort((a,b)=>b.pts-a.pts);
+ $("#rkh").textContent="Pontuação · "+P.length+" participantes";
+ $("#rk").innerHTML=P.slice(0,3).map((p,i)=>`${i+1}. ${esc(p.n)} — ${p.pts}`).join("<br>")||"Sem jogadores";
+ $("#pl").innerHTML=S.players.map((p,i)=>`<div class="p"><span>${esc(p.n)}<br><small>${p.pts} pts · ${p.hit} acertos · seq. ${p.st}</small></span><button data-i="${i}" data-a="ok">✓</button><button data-i="${i}" data-a="no">✗</button><button data-i="${i}" data-a="del">🗑</button></div>`).join("");
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+$("#pl").onclick=e=>{
+ const b=e.target.closest("button");if(!b)return;const p=S.players[b.dataset.i],a=b.dataset.a;
+ if(a==="del")S.players.splice(b.dataset.i,1);
+ else if(a==="ok"){ // +10, bônus de rapidez (+5) e de sequência (+5 a partir de 3)
+  p.hit++;p.st++;p.pts+=10+(G.phase==="play"&&G.left>G.total*.66?5:0)+(p.st>=3?5:0);
+  sfxOk();const c=$("#card");c.classList.remove("ok");void c.offsetWidth;c.classList.add("ok");
+ }else{p.st=0;sfxErr()}
+ save();rank();
+};
+
+/* ===== PAINEL ===== */
+const bind=(id,fn)=>$(id).onclick=fn;
+bind("#bSpin",spin);bind("#bGo",startTimer);bind("#bPa",pause);bind("#bRe",resume);
+bind("#bRv",reveal);bind("#bRv2",reveal);bind("#bNx",spin);bind("#bRs",reset);
+bind("#bAu",()=>{
+ S.cfg.auto=!S.cfg.auto;save();ui();
+ if(S.cfg.auto){if(G.phase==="ready")startTimer();else if(G.phase==="idle")spin();else if(G.phase==="reveal")schedule()}
+ else{clearTimeout(G.nx);clearInterval(G.cd);$("#nx").textContent="Aguardando"}
+});
+bind("#bSf",()=>{S.cfg.sfx=!S.cfg.sfx;save();ui()});
+bind("#tg",()=>$("#pn").classList.toggle("open"));
+addEventListener("keydown",e=>{if(e.key.toLowerCase()==="c"&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName))$("#pn").classList.toggle("open")});
+bind("#bAdd",addP);$("#pNm").onkeydown=e=>{if(e.key==="Enter")addP()};
+function addP(){const n=$("#pNm").value.trim();if(!n)return;S.players.push({n,pts:0,hit:0,st:0});$("#pNm").value="";save();rank()}
+bind("#bZr",()=>{if(confirm("Zerar o ranking?")){S.players.forEach(p=>p.pts=p.hit=p.st=0);save();rank()}});
+[["#cDur","dur",1],["#cGap","gap",1],["#cSp","speed",1],["#cVs","vs",1],["#cVa","va",1]].forEach(([id,k])=>{
+ const el=$(id);el.value=S.cfg[k];
+ el.oninput=()=>{let v=parseFloat(el.value);if(isNaN(v))return;
+  if(k==="dur")v=Math.min(300,Math.max(5,v));if(k==="gap")v=Math.min(120,Math.max(1,v));
+  S.cfg[k]=v;if(k==="va")$("#am").volume=v;
+  if(k==="dur"&&["idle","ready"].includes(G.phase)){G.total=G.left=v*1000;setTm()}
+  save()};
+});
+// música ambiente opcional: o usuário carrega o próprio arquivo
+$("#am").volume=S.cfg.va;
+$("#fAm").onchange=e=>{const f=e.target.files[0];if(f){$("#am").src=URL.createObjectURL(f);$("#am").play().catch(()=>{})}};
+bind("#bAm",()=>{const a=$("#am");if(!a.src)return;a.paused?a.play():a.pause()});
+// editor de categorias/desafios
+const fillJs=()=>$("#js").value=JSON.stringify(S.cats,null,1);
+bind("#bSv",()=>{
+ try{const v=JSON.parse($("#js").value);
+  if(!Array.isArray(v)||v.length<2||!v.every(c=>c.n&&c.c&&c.i&&Array.isArray(c.q)&&c.q.length&&c.q.every(q=>q.length>=3)))throw 0;
+  S.cats=v;save();draw();fillCats();alert("Categorias salvas.")
+ }catch(e){alert("JSON inválido: use ao menos 2 categorias, cada uma com n, c, i e q (lista de [tipo, pergunta, resposta]).")}
+});
+bind("#bDf",()=>{if(confirm("Restaurar categorias padrão?")){S.cats=JSON.parse(JSON.stringify(DEF));save();fillCats();draw()}});
+
+/* ===== CLIQUE NO CENTRO DA ROLETA ===== */
+$("#hub").title="Clique para girar";
+bind("#hub",()=>{if(["idle","reveal","ready"].includes(G.phase))spin()});
+
+/* ===== TRILHA LOCAL: arquivos selecionados pelo usuário ===== */
+const musicFilesEl=$("#musicFiles"), musicPlayer=$("#musicPlayer");
+let musicList=[],musicIndex=0,musicUrls=[];
+function playMusicIndex(i){if(!musicList.length)return;musicIndex=(i+musicList.length)%musicList.length;musicUrls.forEach(URL.revokeObjectURL);musicUrls=[];const file=musicList[musicIndex];const url=URL.createObjectURL(file);musicUrls.push(url);musicPlayer.src=url;musicPlayer.play().catch(()=>{});$("#musicLabel").textContent=`${musicIndex+1}/${musicList.length} · ${file.name}`;}
+musicFilesEl.onchange=e=>{musicList=[...e.target.files];musicIndex=0;playMusicIndex(0)};
+bind("#musicPlay",()=>{if(!musicPlayer.src){if(musicList.length)playMusicIndex(musicIndex);return}musicPlayer.paused?musicPlayer.play().catch(()=>{}):musicPlayer.pause()});
+bind("#musicNext",()=>playMusicIndex(musicIndex+1));musicPlayer.onended=()=>playMusicIndex(musicIndex+1);
+
+/* ===== TIKTOK LIVE: WebSocket com conector local ===== */
+let ttSocket=null,ttConnected=false,ttEligible=0,ttAnswers=0;
+const ttFeed=(msg)=>{const el=$("#ttFeed"),d=document.createElement("div");d.textContent=msg;el.prepend(d);while(el.children.length>14)el.lastChild.remove()};
+function ttSend(data){if(ttSocket&&ttSocket.readyState===WebSocket.OPEN)ttSocket.send(JSON.stringify(data));}
+function ttStatus(t,live=false){$("#ttStatus").textContent=t;$("#liveBadge").textContent=live?"TIKTOK AO VIVO":"TIKTOK OFF";$("#liveBadge").classList.toggle("live",live)}
+function ttConnect(){const username=$("#ttUser").value.trim().replace(/^@/,"");if(!username){alert("Digite o @ da conta que está transmitindo a live.");return}if(ttSocket)ttSocket.close();ttStatus("Conectando ao conector local…");try{ttSocket=new WebSocket("ws://127.0.0.1:21213")}catch(e){ttStatus("Não foi possível abrir o conector local.");return}ttSocket.onopen=()=>{ttStatus("Conector local conectado. Solicitando conexão com a live…");ttSend({type:"connect",username})};ttSocket.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}
+ if(m.type==="status")ttStatus(m.message,!!m.live);
+ if(m.type==="giftQualified"){ttEligible=m.count;$("#ttStats").textContent=`Rosas nesta rodada: ${ttEligible} · Respostas: ${ttAnswers}`;ttFeed(`🌹 ${m.nickname} entrou na rodada com uma Rosa`)}
+ if(m.type==="chat")ttFeed(`💬 ${m.nickname}: ${m.comment}`);
+ if(m.type==="correct"){ttAnswers++;$("#ttStats").textContent=`Rosas nesta rodada: ${ttEligible} · Respostas: ${ttAnswers}`;const uid=String(m.userId),name=m.nickname||"Participante";let pl=S.players.find(x=>x.ttId===uid);if(!pl){pl={n:name,ttId:uid,pts:0,hit:0,st:0};S.players.push(pl)}pl.n=name;pl.hit++;pl.st++;pl.pts+=10+(G.phase==="play"&&G.left>G.total*.66?5:0)+(pl.st>=3?5:0);save();rank();sfxOk();const c=$("#card");c.classList.remove("ok");void c.offsetWidth;c.classList.add("ok");ttFeed(`✅ ${name} acertou! +${m.points||10} pontos`)}
+ if(m.type==="error")ttFeed(`⚠ ${m.message}`);
+ if(m.type==="roundStats"){ttEligible=m.eligible||0;ttAnswers=m.answered||0;$("#ttStats").textContent=`Rosas nesta rodada: ${ttEligible} · Respostas: ${ttAnswers}`}
+ };ttSocket.onclose=()=>{ttConnected=false;ttStatus("Conector desconectado. Abra iniciar.bat e tente novamente.")};ttSocket.onerror=()=>ttStatus("Falha ao acessar 127.0.0.1:21213. Inicie o conector pelo iniciar.bat.")}
+bind("#ttConnect",ttConnect);$("#ttUser").onkeydown=e=>{if(e.key==="Enter")ttConnect()};
+/* ===== ADICIONAR PERGUNTAS E CATEGORIAS ===== */
+function fillCats(){
+ const s=$("#aC"),v=s.value;
+ s.innerHTML=S.cats.map((c,i)=>`<option value="${i}">${c.i} ${esc(c.n)}</option>`).join("");
+ if(v!==""&&S.cats[v])s.value=v;
+ qlist();fillJs();
+}
+function qlist(){
+ const c=S.cats[$("#aC").value];
+ $("#ql").innerHTML=c?c.q.map((q,i)=>`<div class="p"><span>${esc(q[1])}<br><small>${esc(q[2])}</small></span><button data-i="${i}">🗑</button></div>`).join(""):"";
+}
+$("#aC").onchange=qlist;
+bind("#bAq",()=>{
+ const c=S.cats[$("#aC").value],q=$("#aQ").value.trim(),a=$("#aA").value.trim(),t=$("#aT").value.trim()||"Pergunta";
+ if(!c||!q||!a){alert("Escolha a categoria e preencha pergunta e resposta.");return}
+ c.q=c.q.filter(x=>x[2]!=="—");c.q.push([t,q,a]);save();   // remove o marcador de categoria nova
+ $("#aQ").value="";$("#aA").value="";qlist();fillJs();$("#aQ").focus();
+});
+$("#ql").onclick=e=>{
+ const b=e.target.closest("button");if(!b)return;const c=S.cats[$("#aC").value];
+ if(c.q.length<2){alert("A categoria precisa ter ao menos uma pergunta.");return}
+ c.q.splice(b.dataset.i,1);save();qlist();fillJs();
+};
+bind("#bNc",()=>{
+ const n=$("#nC").value.trim();if(!n){alert("Digite o nome da categoria.");return}
+ S.cats.push({n,c:$("#nK").value,i:$("#nI").value.trim()||"🎵",q:[["Pergunta","Adicione perguntas a esta categoria","—"]]});
+ $("#nC").value="";save();draw();fillCats();$("#aC").value=S.cats.length-1;qlist();
+});
+bind("#bRc",()=>{
+ if(S.cats.length<=2){alert("Mantenha ao menos 2 categorias.");return}
+ const i=$("#aC").value,c=S.cats[i];
+ if(c&&confirm("Remover a categoria "+c.n+"?")){S.cats.splice(i,1);G.hl=-1;save();draw();fillCats()}
+});
+
+/* ===== INÍCIO ===== */
+fillCats();rank();hist();ui();show();draw();
+if(S.cfg.auto)setTimeout(()=>{if(G.phase==="idle")spin()},1500);
+</script></body></html>
