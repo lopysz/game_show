@@ -1,34 +1,64 @@
-ROLETA MUSICAL — TIKTOK LIVE (1.1.0)
+ROLETA MUSICAL - TIKTOK LIVE - VERSAO 1.3
+=========================================
 
-IMPORTANTE SOBRE A CONEXAO
-Esta versão remove o caminho EulerStream que estava exigindo plano Business.
-Ela usa o gateway TikTools, que oferece chave Sandbox de avaliação por 7 dias, sem cartão. Não é uma solução gratuita permanente: depois do período de avaliação, consulte os limites e preços do provedor. Não existe garantia de serviço gratuito ilimitado.
+NOVIDADES
+- Conexao 100% GRATIS com o TikTok, sem chave e sem cadastro (biblioteca open-source tiktok-live-connector).
+- Alternativa gratis: app TikFinity.
+- Modo DEMONSTRACAO: testa o jogo inteiro sem estar ao vivo.
+- Pagina /overlay: tela limpa que espelha o jogo em tempo real, para aparecer na sua live.
+- Aviso na tela para quem assiste ("Envie 1 Rosa para jogar"), contador de participantes
+  e avisos "Fulano entrou na rodada" / "Fulano acertou!".
+- Correcao de respostas mais inteligente: "Elis Regina (1974)" aceita "elis regina", "regina",
+  "acho que e a Elis Regina" etc. Perguntas de "Resposta livre" nao sao corrigidas sozinhas.
+- Mais seguro: o conector so aceita conexoes desta propria maquina.
+- A porta mudou para 3210 (a 21213 e usada pelo TikFinity).
 
-REQUISITOS
-- Windows 10/11
-- Node.js 22 ou superior: https://nodejs.org/
-- Internet
+INSTALACAO (Windows)
+1. Instale o Node.js 20 ou superior: https://nodejs.org/
+2. Extraia este ZIP em uma pasta NOVA (ex.: C:\Roleta-Musical).
+3. Execute iniciar.bat. Na primeira vez ele baixa as dependencias (precisa de internet).
+4. O painel abre em http://127.0.0.1:3210. Aperte a tecla C (ou o botao de engrenagem) para abrir o painel lateral.
 
-CONFIGURACAO
-1. Extraia a pasta inteira.
-2. Instale Node.js 22+.
-3. Crie uma chave Sandbox em https://tik.tools (avaliação de 7 dias; sem cartão, conforme documentação do serviço).
-4. Abra o arquivo .env.example, cole sua chave no lugar de COLE_SUA_CHAVE_AQUI.
-5. Salve uma cópia com o nome .env na mesma pasta de server.js.
-6. Execute iniciar.bat. Na primeira vez ele instala a dependência ws.
-7. O navegador abre em http://127.0.0.1:21213.
-8. Digite o @ da conta que está ao vivo e clique Conectar.
-9. No OBS, adicione uma fonte Navegador com URL http://127.0.0.1:21213 e tamanho 1080 x 1920.
+PRIMEIRO TESTE (sem estar ao vivo)
+- Painel lateral > Conexao TikTok LIVE > escolha "Demonstracao" > Conectar.
+- Gire a roleta e inicie a rodada: aparecem Rosas e acertos simulados.
+
+CONECTAR NA LIVE DE VERDADE
+Opcao A (padrao, gratis): escolha "Gratis - TikTok-Live-Connector", digite o @ da conta que
+  esta AO VIVO e clique em Conectar. Nao precisa de chave.
+  Observacao: o servico de assinatura usado por essa biblioteca tem limite de conexoes por dia
+  no modo sem chave. Se aparecer "limite atingido", espere um pouco, use a Opcao B, ou crie
+  uma chave gratuita em eulerstream.com e coloque em EULER_API_KEY no arquivo .env
+  (copie .env.example para .env).
+Opcao B (gratis): instale o app TikFinity, conecte sua live nele, deixe-o aberto e escolha
+  "Gratis - app TikFinity" aqui. Se o TikFinity usar outra porta, ajuste TIKFINITY_URL no .env.
+Opcao C: TikTools (precisa de chave; coloque em TIKTOOLS_API_KEY no .env).
+
+COMO APARECER PARA QUEM ASSISTE A LIVE
+A pagina de transmissao e  http://127.0.0.1:3210/overlay  (acrescente ?bg=transparent para fundo transparente).
+Ela e um ESPELHO: voce joga pelo painel (http://127.0.0.1:3210) e o overlay mostra o mesmo jogo.
+Mantenha o painel aberto no navegador durante a live.
+
+1) OBS Studio (gratis):
+   - Fontes > + > Navegador > URL http://127.0.0.1:3210/overlay, largura 1080, altura 1920.
+   - Defina o canvas do OBS em 1080x1920 (Configuracoes > Video) para live vertical.
+2) Do OBS para o TikTok:
+   - Com a chave de transmissao: no TikTok LIVE (Studio/Web) pegue Servidor e Chave e cole
+     em OBS > Configuracoes > Transmissao > Personalizado. O TikTok pode exigir requisitos
+     da conta para liberar a chave.
+   - Ou pela Camera Virtual: no OBS clique "Iniciar camera virtual" e, no TikTok LIVE Studio,
+     adicione como fonte de video o dispositivo "OBS Virtual Camera".
+3) Audio: os efeitos sonoros tocam no painel. Para o publico ouvir, capture o audio da area de
+   trabalho no OBS (ou, no OBS, marque "Controlar audio via OBS" na fonte do painel).
+   A trilha sonora do painel tambem sai por aqui.
 
 REGRAS DA RODADA
-- O servidor reconhece eventos de presente Rose/Rosa.
-- Cada usuário entra uma única vez por rodada, mesmo que envie várias rosas.
-- Só quem entrou com Rosa pode pontuar naquela rodada.
-- A primeira resposta correta por usuário na rodada pontua.
-- Ao iniciar a rodada seguinte, a elegibilidade é zerada.
+- Uma Rosa por pessoa por rodada habilita a participacao.
+- Rosas adicionais da mesma pessoa na mesma rodada nao criam novas entradas.
+- So participantes habilitados pontuam, e uma vez por pergunta.
+- A elegibilidade e zerada quando uma nova rodada comeca.
 
 LIMITACOES
-- TikTools é um serviço de terceiro e requer uma chave própria. A Sandbox dura 7 dias; uso contínuo pode exigir plano pago.
-- Integração não oficial. Alterações no TikTok ou no provedor podem interromper o funcionamento.
-- O servidor escuta apenas em 127.0.0.1 e a chave fica no .env, não no HTML.
-- Use apenas em uma live da qual você tenha autorização para acompanhar os eventos.
+- Nao e uma API oficial do TikTok: bibliotecas desse tipo podem parar de funcionar quando o TikTok muda algo.
+  Por isso existem a Opcao B e o modo manual (marcar acertos pelo ranking do painel).
+- Nao envie o arquivo .env para ninguem e nao publique no GitHub.

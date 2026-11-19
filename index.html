@@ -59,12 +59,18 @@ textarea{width:100%;height:200px;font:11px monospace}
 #hub{cursor:pointer;transition:.2s}#hub:hover{box-shadow:0 0 4cqw var(--ouro);transform:scale(1.05)}
 #pn .f{width:100%;margin:3px 0}#pn details{margin-top:6px}#pn summary{cursor:pointer;color:var(--ouro);margin:6px 0}
 #ql .p{display:grid;grid-template-columns:1fr auto;gap:4px;align-items:center;margin:3px 0}#ql small{opacity:.7}
+#how{font-size:2.9cqw;text-align:center;color:#ffd6e8;margin-top:.8cqh}
+#toast{position:absolute;left:50%;top:60cqh;transform:translate(-50%,-1cqh);max-width:92cqw;padding:1.1cqh 4cqw;border-radius:5cqw;background:rgba(0,0,0,.82);border:1px solid var(--ouro);font-size:3.6cqw;opacity:0;transition:.3s;z-index:6;pointer-events:none;white-space:nowrap}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+html.ov #pn,html.ov #tg,html.ov .hov{display:none!important}
+html.tr,html.tr body{background:transparent}html.tr #stage{background:none}
 </style></head><body>
 <div id="stage">
  <header>
   <h1>ROLETA MUSICAL</h1>
   <div class="sub">Uma viagem pela música brasileira</div>
   <div class="pills"><span id="rd">Rodada 0</span><span id="md">MANUAL</span><span id="liveBadge">TIKTOK OFF</span></div>
+  <div id="how">🌹 Envie 1 Rosa para jogar · 0 na rodada · 0 acertos</div>
  </header>
  <div id="wh"><div id="pt"></div><canvas id="cv"></canvas><div id="hub">♪</div><div id="ann"></div></div>
  <div id="card">
@@ -72,6 +78,7 @@ textarea{width:100%;height:200px;font:11px monospace}
   <div id="tm"><span>--</span></div>
   <button class="rv hov" id="bRv2">Revelar resposta</button>
  </div>
+ <div id="toast"></div>
  <footer>
   <div><b>Próxima rodada</b><span id="nx">Aguardando</span></div>
   <div><b id="rkh">Pontuação</b><span id="rk"></span></div>
@@ -102,11 +109,16 @@ textarea{width:100%;height:200px;font:11px monospace}
  <small>Use MP3/WAV próprios. Spotify/YouTube não são incorporados porque os players podem bloquear reprodução automática ou captura no OBS. Alternativa: toque-os no aplicativo/navegador e capture o áudio no OBS.</small>
  <audio id="musicPlayer" controls style="width:100%;margin-top:6px"></audio>
  <h3>Conexão TikTok LIVE</h3>
- <div class="r"><input id="ttUser" placeholder="@usuario da live" style="flex:1;min-width:0"><button id="ttConnect">Conectar</button></div>
+ <select id="ttProv" class="f"><option value="free">Grátis · TikTok-Live-Connector (sem chave)</option><option value="tikfinity">Grátis · app TikFinity</option><option value="demo">Demonstração (sem live, para testar)</option><option value="tiktools">TikTools (chave)</option></select>
+ <div class="r"><input id="ttUser" placeholder="@usuario da live" style="flex:1;min-width:0"><button id="ttConnect">Conectar</button><button id="ttOff">Parar</button></div>
  <div id="ttStatus" class="f">Conector local não iniciado</div>
  <div class="f" id="ttStats">Rosas nesta rodada: 0 · Respostas: 0</div>
  <div id="ttFeed" class="f" style="max-height:130px;overflow:auto">Aguardando eventos da live…</div>
  <small>Regra: 1 Rosa por pessoa em cada rodada. Só quem enviar a Rosa participa da pontuação daquela rodada. Comentários dos participantes são verificados automaticamente.</small>
+ <h3>Mostrar para quem assiste</h3>
+ <div class="f" id="ovUrl" style="word-break:break-all;color:#ffd6e8"></div>
+ <div class="g"><button id="ovCopy">Copiar link</button><button id="ovOpen">Abrir overlay</button></div>
+ <small>Use este link como Fonte Navegador (1080×1920) no OBS. Fundo transparente: acrescente ?bg=transparent. Veja o LEIA-ME.</small>
  <h3>Adicionar pergunta</h3>
  <select id="aC" class="f"></select>
  <input id="aT" class="f" list="tps" placeholder="Tipo (ex.: Adivinhe o artista)">
@@ -133,6 +145,9 @@ textarea{width:100%;height:200px;font:11px monospace}
 <script>
 "use strict";
 const $=s=>document.querySelector(s);
+const OV=location.pathname.replace(/\/+$/,"")==="/overlay"; // /overlay = tela limpa (espelho) para OBS / LIVE Studio
+if(OV)document.documentElement.classList.add("ov");
+if(/[?&]bg=transparent/.test(location.search))document.documentElement.classList.add("tr");
 
 /* ===== BANCO DE DESAFIOS (editável também pelo painel) ===== */
 const DEF=[
@@ -155,7 +170,7 @@ const CFG0={dur:30,gap:8,auto:false,sfx:true,speed:1,vs:.7,va:.3};
 let S;
 try{S=JSON.parse(localStorage.getItem("rm1"))}catch(e){}
 S=Object.assign({cats:JSON.parse(JSON.stringify(DEF)),players:[]},S||{});S.cfg=Object.assign({},CFG0,S.cfg||{});
-const save=()=>{try{localStorage.setItem("rm1",JSON.stringify(S))}catch(e){}};
+const save=()=>{try{localStorage.setItem("rm1",JSON.stringify(S))}catch(e){}if(typeof sendCats==="function")sendCats()};
 const G={phase:"idle",round:0,rot:0,ch:null,left:0,total:0,tok:0,t0:0,hist:[],lastKey:"",hl:-1,tmr:0,nx:0,cd:0,bl:0};
 
 /* ===== ÁUDIO (sintetizado, sem arquivos externos) ===== */
@@ -211,7 +226,7 @@ function stopped(i,tk){
  G.bl=setInterval(()=>{G.hl=k++%2?i:-1;if(k>7){clearInterval(G.bl);G.hl=i}draw()},170);
  const cat=S.cats[i];let qi,key,tries=0;
  do{qi=Math.floor(Math.random()*cat.q.length);key=i+":"+qi}while(key===G.lastKey&&cat.q.length>1&&++tries<20); // não repete o desafio seguido
- G.lastKey=key;G.ch={cat,q:cat.q[qi]};G.phase="ready";ttEligible=0;ttAnswers=0;$("#ttStats").textContent="Rosas nesta rodada: 0 · Respostas: 0";ttSend({type:"roundStart",round:G.round,answer:G.ch.q[2]});G.total=G.left=S.cfg.dur*1000;ui();show();
+ G.lastKey=key;G.ch={cat,q:cat.q[qi]};G.phase="ready";ttEligible=0;ttAnswers=0;ttStatsUpd();ttSend({type:"roundStart",round:G.round,answer:G.ch.q[2]});G.total=G.left=S.cfg.dur*1000;ui();show();
  if(S.cfg.auto)G.nx=setTimeout(()=>{if(tk===G.tok)startTimer()},1500);
 }
 
@@ -284,7 +299,7 @@ $("#pl").onclick=e=>{
  if(a==="del")S.players.splice(b.dataset.i,1);
  else if(a==="ok"){ // +10, bônus de rapidez (+5) e de sequência (+5 a partir de 3)
   p.hit++;p.st++;p.pts+=10+(G.phase==="play"&&G.left>G.total*.66?5:0)+(p.st>=3?5:0);
-  sfxOk();const c=$("#card");c.classList.remove("ok");void c.offsetWidth;c.classList.add("ok");
+  sfxOk();flashOk();toast("✅ "+p.n+" acertou!");
  }else{p.st=0;sfxErr()}
  save();rank();
 };
@@ -338,20 +353,60 @@ musicFilesEl.onchange=e=>{musicList=[...e.target.files];musicIndex=0;playMusicIn
 bind("#musicPlay",()=>{if(!musicPlayer.src){if(musicList.length)playMusicIndex(musicIndex);return}musicPlayer.paused?musicPlayer.play().catch(()=>{}):musicPlayer.pause()});
 bind("#musicNext",()=>playMusicIndex(musicIndex+1));musicPlayer.onended=()=>playMusicIndex(musicIndex+1);
 
-/* ===== TIKTOK LIVE: WebSocket com conector local ===== */
-let ttSocket=null,ttConnected=false,ttEligible=0,ttAnswers=0;
-const ttFeed=(msg)=>{const el=$("#ttFeed"),d=document.createElement("div");d.textContent=msg;el.prepend(d);while(el.children.length>14)el.lastChild.remove()};
-function ttSend(data){if(ttSocket&&ttSocket.readyState===WebSocket.OPEN)ttSocket.send(JSON.stringify(data));}
-function ttStatus(t,live=false){$("#ttStatus").textContent=t;$("#liveBadge").textContent=live?"TIKTOK AO VIVO":"TIKTOK OFF";$("#liveBadge").classList.toggle("live",live)}
-function ttConnect(){const username=$("#ttUser").value.trim().replace(/^@/,"");if(!username){alert("Digite o @ da conta que está transmitindo a live.");return}if(ttSocket)ttSocket.close();ttStatus("Conectando ao conector local…");try{ttSocket=new WebSocket("ws://127.0.0.1:21213/ws")}catch(e){ttStatus("Não foi possível abrir o conector local.");return}ttSocket.onopen=()=>{ttStatus("Conector local conectado. Solicitando conexão com a live…");ttSend({type:"connect",username})};ttSocket.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}
- if(m.type==="status")ttStatus(m.message,!!m.live);
- if(m.type==="giftQualified"){ttEligible=m.count;$("#ttStats").textContent=`Rosas nesta rodada: ${ttEligible} · Respostas: ${ttAnswers}`;ttFeed(`🌹 ${m.nickname} entrou na rodada com uma Rosa`)}
- if(m.type==="chat")ttFeed(`💬 ${m.nickname}: ${m.comment}`);
- if(m.type==="correct"){ttAnswers++;$("#ttStats").textContent=`Rosas nesta rodada: ${ttEligible} · Respostas: ${ttAnswers}`;const uid=String(m.userId),name=m.nickname||"Participante";let pl=S.players.find(x=>x.ttId===uid);if(!pl){pl={n:name,ttId:uid,pts:0,hit:0,st:0};S.players.push(pl)}pl.n=name;pl.hit++;pl.st++;pl.pts+=10+(G.phase==="play"&&G.left>G.total*.66?5:0)+(pl.st>=3?5:0);save();rank();sfxOk();const c=$("#card");c.classList.remove("ok");void c.offsetWidth;c.classList.add("ok");ttFeed(`✅ ${name} acertou! +${m.points||10} pontos`)}
- if(m.type==="error")ttFeed(`⚠ ${m.message}`);
- if(m.type==="roundStats"){ttEligible=m.eligible||0;ttAnswers=m.answered||0;$("#ttStats").textContent=`Rosas nesta rodada: ${ttEligible} · Respostas: ${ttAnswers}`}
- };ttSocket.onclose=()=>{ttConnected=false;ttStatus("Conector desconectado. Abra iniciar.bat e tente novamente.")};ttSocket.onerror=()=>ttStatus("Falha ao acessar 127.0.0.1:21213. Inicie o conector pelo iniciar.bat.")}
-bind("#ttConnect",ttConnect);$("#ttUser").onkeydown=e=>{if(e.key==="Enter")ttConnect()};
+/* ===== TIKTOK LIVE + OVERLAY: WebSocket com o conector local (mesma origem) ===== */
+let ttSocket=null,ttLive=false,ttEligible=0,ttAnswers=0,TOAST={id:0,text:""},OKN=0,lastSync="",lastCats="",OVT,OVK;
+const WSURL=(location.protocol==="https:"?"wss":"ws")+"://"+location.host+"/ws";
+const ttFeed=msg=>{const el=$("#ttFeed"),d=document.createElement("div");d.textContent=msg;el.prepend(d);while(el.children.length>14)el.lastChild.remove()};
+function ttStatsUpd(){$("#ttStats").textContent=`Rosas nesta rodada: ${ttEligible} · Respostas: ${ttAnswers}`;$("#how").textContent=`🌹 Envie 1 Rosa para jogar · ${ttEligible} na rodada · ${ttAnswers} acertos`}
+function ttSend(d){if(ttSocket&&ttSocket.readyState===1)ttSocket.send(JSON.stringify(d))}
+function badge(live){$("#liveBadge").textContent=live?"TIKTOK AO VIVO":"TIKTOK OFF";$("#liveBadge").classList.toggle("live",!!live)}
+function ttStatus(t,live=false){ttLive=live;$("#ttStatus").textContent=t;badge(live)}
+function showToast(t){const el=$("#toast");el.textContent=t;el.classList.add("on");clearTimeout(showToast.h);showToast.h=setTimeout(()=>el.classList.remove("on"),3500)}
+function toast(t){TOAST={id:TOAST.id+1,text:t};showToast(t)}
+function flashOk(){OKN++;const c=$("#card");c.classList.remove("ok");void c.offsetWidth;c.classList.add("ok")}
+function sendCats(force){const j=JSON.stringify({type:"cats",cats:S.cats.map(c=>({n:c.n,c:c.c,i:c.i}))});if(j===lastCats&&!force)return;lastCats=j;if(ttSocket&&ttSocket.readyState===1)ttSocket.send(j)}
+function pushSync(force){ // espelha o estado do jogo para o /overlay (só envia quando algo mudou)
+ if(!ttSocket||ttSocket.readyState!==1)return;
+ const j=JSON.stringify({type:"sync",rot:G.rot,hl:G.hl,phase:G.phase,round:G.round,left:G.left,total:G.total,
+  ch:G.ch&&{cat:{n:G.ch.cat.n,c:G.ch.cat.c,i:G.ch.cat.i},q:G.ch.q},hist:G.hist.slice(-6),auto:S.cfg.auto,
+  players:S.players.map(p=>({n:p.n,pts:p.pts,hit:p.hit,st:p.st})),live:ttLive,el:ttEligible,an:ttAnswers,toast:TOAST,ok:OKN,nx:$("#nx").textContent});
+ if(j===lastSync&&!force)return;lastSync=j;ttSocket.send(j)}
+function wsInit(){
+ try{ttSocket=new WebSocket(WSURL)}catch(e){ttStatus("Conector local indisponível. Abra pelo iniciar.bat.");return}
+ ttSocket.onopen=()=>{ttStatus("Conector local pronto. Escolha o modo e clique em Conectar.");sendCats(true);pushSync(true)};
+ ttSocket.onclose=()=>{ttStatus("Conector local desconectado. Reabra o iniciar.bat.");setTimeout(wsInit,2000)};
+ ttSocket.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}
+  if(m.type==="status")ttStatus(m.message,!!m.live);
+  else if(m.type==="giftQualified"){ttEligible=m.count;ttStatsUpd();ttFeed(`🌹 ${m.nickname} entrou na rodada com uma Rosa`);toast(`🌹 ${m.nickname} entrou na rodada!`)}
+  else if(m.type==="chat")ttFeed(`💬 ${m.nickname}: ${m.comment}`);
+  else if(m.type==="correct"){const uid=String(m.userId),name=m.nickname||"Participante";let pl=S.players.find(x=>x.ttId===uid);if(!pl){pl={n:name,ttId:uid,pts:0,hit:0,st:0};S.players.push(pl)}
+   pl.n=name;pl.hit++;pl.st++;const add=10+(G.phase==="play"&&G.left>G.total*.66?5:0)+(pl.st>=3?5:0);pl.pts+=add;save();rank();sfxOk();flashOk();toast(`✅ ${name} acertou! +${add}`);ttFeed(`✅ ${name} acertou! +${add} pontos`)}
+  else if(m.type==="error")ttFeed(`⚠ ${m.message}`);
+  else if(m.type==="roundStats"){ttEligible=m.eligible||0;ttAnswers=m.answered||0;ttStatsUpd()}
+ }}
+function ttConnect(){
+ const username=$("#ttUser").value.trim().replace(/^@/,""),provider=$("#ttProv").value;
+ if(!ttSocket||ttSocket.readyState!==1){alert("O conector local não está rodando. Abra o iniciar.bat.");return}
+ if(["free","tiktools"].includes(provider)&&!username){alert("Digite o @ da conta que está ao vivo.");return}
+ S.cfg.user=username;S.cfg.prov=provider;save();ttStatus("Conectando…");ttSend({type:"connect",provider,username})}
+$("#ttUser").value=S.cfg.user||"";$("#ttProv").value=S.cfg.prov||"free";
+bind("#ttConnect",ttConnect);bind("#ttOff",()=>ttSend({type:"disconnect"}));$("#ttUser").onkeydown=e=>{if(e.key==="Enter")ttConnect()};
+$("#ovUrl").textContent=location.origin+"/overlay";
+bind("#ovCopy",()=>{try{navigator.clipboard.writeText(location.origin+"/overlay")}catch(e){}});bind("#ovOpen",()=>open("/overlay","_blank"));
+function startOverlay(){ // página /overlay: só mostra o que o painel de controle envia
+ const conn=()=>{const w=new WebSocket(WSURL);
+  w.onopen=()=>w.send(JSON.stringify({type:"hello",role:"overlay"}));
+  w.onclose=()=>setTimeout(conn,2000);
+  w.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}
+   if(m.type==="cats"){S.cats=m.cats;draw();return}
+   if(m.type!=="sync")return;
+   const pr=G.round;Object.assign(G,{rot:m.rot,hl:m.hl,phase:m.phase,round:m.round,left:m.left,total:m.total,ch:m.ch,hist:m.hist});
+   S.cfg.auto=m.auto;S.players=m.players;ttEligible=m.el;ttAnswers=m.an;
+   draw();show();ui();hist();rank();ttStatsUpd();badge(m.live);$("#nx").textContent=m.nx;
+   if(m.phase==="spin"&&m.round!==pr){const a=$("#ann");a.textContent="Rodada "+m.round;a.classList.remove("go");void a.offsetWidth;a.classList.add("go")}
+   if(OVT===undefined)OVT=m.toast.id;else if(m.toast.id!==OVT){OVT=m.toast.id;showToast(m.toast.text)}
+   if(OVK===undefined)OVK=m.ok;else if(m.ok!==OVK){OVK=m.ok;flashOk()}
+  }};conn()}
 /* ===== ADICIONAR PERGUNTAS E CATEGORIAS ===== */
 function fillCats(){
  const s=$("#aC"),v=s.value;
@@ -388,5 +443,5 @@ bind("#bRc",()=>{
 
 /* ===== INÍCIO ===== */
 fillCats();rank();hist();ui();show();draw();
-if(S.cfg.auto)setTimeout(()=>{if(G.phase==="idle")spin()},1500);
+if(OV)startOverlay();else{wsInit();setInterval(pushSync,33);if(S.cfg.auto)setTimeout(()=>{if(G.phase==="idle")spin()},1500)}
 </script></body></html>
