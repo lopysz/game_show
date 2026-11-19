@@ -36,9 +36,11 @@ function isCorrect(comment) {
   return candidates.some(a => value === a || (a.length >= 5 && value.includes(a)));
 }
 function cleanName(v) { return String(v || 'Participante').replace(/[<>]/g, '').slice(0, 40); }
-function userKey(data) { return String(data.userId || data.uniqueId || data.nickname || data.user?.uniqueId || '').toLowerCase(); }
+function userKey(data) {
+  return String(data.userId || data.uniqueId || data.nickname || data.user?.userId || data.user?.uniqueId || data.user?.secUid || '').toLowerCase();
+}
 function onChat(data) {
-  const uid = userKey(data); const nickname = cleanName(data.nickname || data.user?.nickname || data.uniqueId);
+  const uid = userKey(data); const nickname = cleanName(data.nickname || data.user?.nickname || data.uniqueId || data.user?.uniqueId);
   const comment = String(data.comment || data.message || '').slice(0, 300);
   if (!uid || !comment) return;
   sendAll({ type: 'chat', userId: uid, nickname, comment });
@@ -50,12 +52,12 @@ function onChat(data) {
 }
 function onGift(data) {
   // O nome da Rosa pode variar conforme idioma/localização; o ID da Rosa é reconhecido junto do nome.
-  const giftName = String(data.giftName || data.gift?.name || '').toLowerCase();
-  const giftId = Number(data.giftId || data.gift?.id || 0);
+  const giftName = String(data.extendedGiftInfo?.name || data.giftDetails?.giftName || data.giftName || data.gift?.name || '').toLowerCase();
+  const giftId = Number(data.extendedGiftInfo?.id || data.giftDetails?.giftId || data.giftId || data.gift?.id || 0);
   const isRose = giftId === 5655 || giftName === 'rose' || giftName === 'rosa';
   if (!isRose || !roundOpen) return;
   const uid = userKey(data); if (!uid || eligible.has(uid)) return;
-  const nickname = cleanName(data.nickname || data.uniqueId || data.user?.nickname);
+  const nickname = cleanName(data.nickname || data.uniqueId || data.user?.nickname || data.user?.uniqueId);
   eligible.set(uid, nickname);
   sendAll({ type: 'giftQualified', userId: uid, nickname, count: eligible.size });
   sendAll({ type: 'roundStats', eligible: eligible.size, answered: answered.size });
@@ -65,7 +67,13 @@ async function connectTikTok(username) {
     if (connection) { try { await connection.disconnect(); } catch {} connection = null; }
     liveUsername = username.replace(/^@/, '');
     eligible.clear(); answered.clear(); roundOpen = false;
-    connection = new TikTokLiveConnection(liveUsername);
+    // A versão atual espera que o objeto de opções seja informado.
+    // Sem ele, ocorre o erro: reading 'processInitialData'.
+    connection = new TikTokLiveConnection(liveUsername, {
+      processInitialData: false,
+      fetchRoomInfoOnConnect: true,
+      enableExtendedGiftInfo: true
+    });
     connection.on(WebcastEvent.CHAT, onChat);
     connection.on(WebcastEvent.GIFT, onGift);
     connection.on('connected', () => status(`Conectado à live de @${liveUsername}`, true));

@@ -1,9 +1,14 @@
 {
   "name": "roleta-musical-tiktok-live",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Roleta Musical com integração local ao TikTok LIVE",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "dependencies": { "tiktok-live-connector": "^2.1.0", "ws": "^8.18.0" }
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "tiktok-live-connector": "^2.1.0",
+    "ws": "^8.18.0"
+  }
 }
