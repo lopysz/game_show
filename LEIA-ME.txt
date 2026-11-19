@@ -1,27 +1,34 @@
-ROLETA MUSICAL — TIKTOK LIVE (CORREÇÃO 1.0.1)
+ROLETA MUSICAL — TIKTOK LIVE (1.1.0)
 
-CORREÇÃO
-O erro "Cannot read properties of undefined (reading 'processInitialData')" ocorria porque o servidor criava TikTokLiveConnection sem o segundo argumento de opções. A versão atual da biblioteca espera esse objeto. Agora o conector é criado com opções explícitas.
+IMPORTANTE SOBRE A CONEXAO
+Esta versão remove o caminho EulerStream que estava exigindo plano Business.
+Ela usa o gateway TikTools, que oferece chave Sandbox de avaliação por 7 dias, sem cartão. Não é uma solução gratuita permanente: depois do período de avaliação, consulte os limites e preços do provedor. Não existe garantia de serviço gratuito ilimitado.
 
-COMO ATUALIZAR
-1. Feche o terminal antigo (Ctrl+C).
-2. Extraia esta versão corrigida em uma pasta nova.
-3. Se existir node_modules, apague essa pasta para reinstalar limpo.
-4. Execute iniciar.bat.
-5. No painel do jogo, informe o @ da conta que está AO VIVO e clique Conectar.
+REQUISITOS
+- Windows 10/11
+- Node.js 22 ou superior: https://nodejs.org/
+- Internet
 
-A biblioteca é comunitária e não oficial. Esta correção resolve o erro de inicialização reportado, mas não garante conexão em toda conta, região ou rede.
+CONFIGURACAO
+1. Extraia a pasta inteira.
+2. Instale Node.js 22+.
+3. Crie uma chave Sandbox em https://tik.tools (avaliação de 7 dias; sem cartão, conforme documentação do serviço).
+4. Abra o arquivo .env.example, cole sua chave no lugar de COLE_SUA_CHAVE_AQUI.
+5. Salve uma cópia com o nome .env na mesma pasta de server.js.
+6. Execute iniciar.bat. Na primeira vez ele instala a dependência ws.
+7. O navegador abre em http://127.0.0.1:21213.
+8. Digite o @ da conta que está ao vivo e clique Conectar.
+9. No OBS, adicione uma fonte Navegador com URL http://127.0.0.1:21213 e tamanho 1080 x 1920.
 
-REGRAS
-- Uma Rosa por participante por rodada.
-- Rosas adicionais na mesma rodada não liberam entradas extras.
-- A cada rodada, a elegibilidade é reiniciada.
-- Só quem enviou a Rosa da rodada pode pontuar.
-- Comentários corretos recebem 10 pontos automaticamente.
+REGRAS DA RODADA
+- O servidor reconhece eventos de presente Rose/Rosa.
+- Cada usuário entra uma única vez por rodada, mesmo que envie várias rosas.
+- Só quem entrou com Rosa pode pontuar naquela rodada.
+- A primeira resposta correta por usuário na rodada pontua.
+- Ao iniciar a rodada seguinte, a elegibilidade é zerada.
 
-MÚSICA
-Use arquivos MP3/WAV locais pelo painel ou toque Spotify/YouTube separadamente e capture o áudio no OBS. O jogo não remove bloqueios de incorporação nem contorna DRM/autoplay.
-
-OBS
-Fonte de navegador: http://127.0.0.1:21213
-Resolução sugerida: 1080 x 1920.
+LIMITACOES
+- TikTools é um serviço de terceiro e requer uma chave própria. A Sandbox dura 7 dias; uso contínuo pode exigir plano pago.
+- Integração não oficial. Alterações no TikTok ou no provedor podem interromper o funcionamento.
+- O servidor escuta apenas em 127.0.0.1 e a chave fica no .env, não no HTML.
+- Use apenas em uma live da qual você tenha autorização para acompanhar os eventos.

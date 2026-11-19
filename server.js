@@ -1,106 +1,101 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { WebSocketServer } = require('ws');
-const { TikTokLiveConnection, WebcastEvent } = require('tiktok-live-connector');
+import http from 'node:http';
+import { WebSocketServer, WebSocket } from 'ws';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const HOST = '127.0.0.1';
-const PORT = 21213;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+function loadEnv() {
+  const p = path.join(__dirname, '.env');
+  if (!fs.existsSync(p)) return;
+  for (const line of fs.readFileSync(p, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
+  }
+}
+loadEnv();
+const PORT = Number(process.env.PORT || 21213);
+const API_KEY = process.env.TIKTOOLS_API_KEY || '';
+const API = 'https://api.tik.tools';
+let liveSocket = null, liveUser = '', currentAnswer = '', round = 0;
+const eligible = new Map(), answered = new Set();
 const clients = new Set();
-let connection = null;
-let currentRound = 0;
-let roundOpen = false;
-let correctAnswer = '';
-let eligible = new Map();
-let answered = new Set();
-let liveUsername = '';
 
 const server = http.createServer((req, res) => {
-  const pathname = decodeURIComponent(new URL(req.url, `http://${HOST}:${PORT}`).pathname);
-  const file = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-  const full = path.join(__dirname, file);
-  if (!full.startsWith(__dirname) || !fs.existsSync(full) || !fs.statSync(full).isFile()) {
-    res.writeHead(404); return res.end('Not found');
-  }
-  const ext = path.extname(full);
-  res.writeHead(200, { 'Content-Type': ext === '.html' ? 'text/html; charset=utf-8' : 'application/octet-stream', 'Cache-Control': 'no-store' });
-  fs.createReadStream(full).pipe(res);
-});
-const wss = new WebSocketServer({ server });
-function sendAll(data) { const msg = JSON.stringify(data); for (const c of clients) if (c.readyState === 1) c.send(msg); }
-function status(message, live=false) { sendAll({ type: 'status', message, live }); }
-function norm(v) { return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
-function isCorrect(comment) {
-  const candidates = correctAnswer.split(/[|;]/).map(norm).filter(Boolean);
-  const value = norm(comment);
-  return candidates.some(a => value === a || (a.length >= 5 && value.includes(a)));
-}
-function cleanName(v) { return String(v || 'Participante').replace(/[<>]/g, '').slice(0, 40); }
-function userKey(data) {
-  return String(data.userId || data.uniqueId || data.nickname || data.user?.userId || data.user?.uniqueId || data.user?.secUid || '').toLowerCase();
-}
-function onChat(data) {
-  const uid = userKey(data); const nickname = cleanName(data.nickname || data.user?.nickname || data.uniqueId || data.user?.uniqueId);
-  const comment = String(data.comment || data.message || '').slice(0, 300);
-  if (!uid || !comment) return;
-  sendAll({ type: 'chat', userId: uid, nickname, comment });
-  if (!roundOpen || !eligible.has(uid) || answered.has(uid)) return;
-  if (isCorrect(comment)) {
-    answered.add(uid);
-    sendAll({ type: 'correct', userId: uid, nickname, points: 10 });
-  }
-}
-function onGift(data) {
-  // O nome da Rosa pode variar conforme idioma/localização; o ID da Rosa é reconhecido junto do nome.
-  const giftName = String(data.extendedGiftInfo?.name || data.giftDetails?.giftName || data.giftName || data.gift?.name || '').toLowerCase();
-  const giftId = Number(data.extendedGiftInfo?.id || data.giftDetails?.giftId || data.giftId || data.gift?.id || 0);
-  const isRose = giftId === 5655 || giftName === 'rose' || giftName === 'rosa';
-  if (!isRose || !roundOpen) return;
-  const uid = userKey(data); if (!uid || eligible.has(uid)) return;
-  const nickname = cleanName(data.nickname || data.uniqueId || data.user?.nickname || data.user?.uniqueId);
-  eligible.set(uid, nickname);
-  sendAll({ type: 'giftQualified', userId: uid, nickname, count: eligible.size });
-  sendAll({ type: 'roundStats', eligible: eligible.size, answered: answered.size });
-}
-async function connectTikTok(username) {
-  try {
-    if (connection) { try { await connection.disconnect(); } catch {} connection = null; }
-    liveUsername = username.replace(/^@/, '');
-    eligible.clear(); answered.clear(); roundOpen = false;
-    // A versão atual espera que o objeto de opções seja informado.
-    // Sem ele, ocorre o erro: reading 'processInitialData'.
-    connection = new TikTokLiveConnection(liveUsername, {
-      processInitialData: false,
-      fetchRoomInfoOnConnect: true,
-      enableExtendedGiftInfo: true
-    });
-    connection.on(WebcastEvent.CHAT, onChat);
-    connection.on(WebcastEvent.GIFT, onGift);
-    connection.on('connected', () => status(`Conectado à live de @${liveUsername}`, true));
-    connection.on('disconnected', () => status('Conexão com TikTok encerrada.', false));
-    connection.on('error', err => sendAll({ type: 'error', message: `TikTok: ${err?.message || err}` }));
-    const state = await connection.connect();
-    status(`Conectado à live de @${liveUsername}`, true);
-    sendAll({ type: 'status', message: `Conectado à live de @${liveUsername} · sala ${state.roomId || 'ativa'}`, live: true });
-  } catch (err) {
-    status(`Não foi possível conectar: ${err?.message || err}`, false);
-  }
-}
-wss.on('connection', ws => {
-  clients.add(ws);
-  ws.send(JSON.stringify({ type: 'status', message: 'Conector local pronto. Informe o @ da live.', live: false }));
-  ws.on('message', raw => {
-    let m; try { m = JSON.parse(raw.toString()); } catch { return; }
-    if (m.type === 'connect' && typeof m.username === 'string' && /^[a-zA-Z0-9._]{2,30}$/.test(m.username.replace(/^@/, ''))) connectTikTok(m.username);
-    if (m.type === 'roundStart') {
-      currentRound = Number(m.round) || currentRound + 1;
-      correctAnswer = String(m.answer || '');
-      eligible.clear(); answered.clear(); roundOpen = true;
-      sendAll({ type: 'roundStats', eligible: 0, answered: 0, round: currentRound });
-    }
-    if (m.type === 'roundEnd') roundOpen = false;
+  const file = req.url === '/' ? 'index.html' : path.basename(decodeURIComponent(req.url.split('?')[0]));
+  const allowed = new Set(['index.html']);
+  if (!allowed.has(file)) { res.writeHead(404); return res.end('Not found'); }
+  fs.readFile(path.join(__dirname, file), (err, data) => {
+    if (err) { res.writeHead(500); return res.end('Não foi possível abrir o jogo.'); }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(data);
   });
-  ws.on('close', () => clients.delete(ws));
 });
-server.listen(PORT, HOST, () => console.log(`Roleta Musical em http://${HOST}:${PORT}`));
-process.on('SIGINT', async () => { try { if (connection) await connection.disconnect(); } catch {} process.exit(0); });
+const wss = new WebSocketServer({ server, path: '/ws' });
+function send(client, data) { if (client?.readyState === WebSocket.OPEN) client.send(JSON.stringify(data)); }
+function broadcast(data) { for (const c of clients) send(c, data); }
+function status(message, live=false) { broadcast({type:'status', message, live}); }
+function norm(s) { return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function uidOf(d) { return String(d?.user?.uniqueId ?? d?.user?.id ?? d?.user_unique_id ?? d?.userId ?? ''); }
+function nameOf(d) { return String(d?.user?.nickname ?? d?.user?.uniqueId ?? d?.user_unique_id ?? 'Participante'); }
+function giftIsRose(d) { const n=norm(d?.giftName ?? d?.gift?.name ?? ''); return n==='rose' || n==='rosa'; }
+function closeLive() { if (liveSocket) { try { liveSocket.close(); } catch {} liveSocket=null; } }
+async function connectLive(username) {
+  if (!API_KEY) throw new Error('Falta configurar TIKTOOLS_API_KEY no arquivo .env. Consulte o LEIA-ME.');
+  closeLive(); liveUser=username; currentAnswer=''; eligible.clear(); answered.clear(); round=0;
+  status(`Solicitando acesso temporário ao serviço de conexão para @${username}…`);
+  const response = await fetch(`${API}/authentication/jwt?apiKey=${encodeURIComponent(API_KEY)}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({allowed_creators:[username], expire_after:600, max_websockets:1})
+  });
+  const payload = await response.json().catch(()=>({}));
+  const token = payload?.data?.token;
+  if (!response.ok || !token) throw new Error(payload?.message || payload?.error || `TikTools não autorizou a conexão (HTTP ${response.status}). Confira a chave e os limites da conta.`);
+  const ws = new WebSocket(`wss://api.tik.tools/?uniqueId=${encodeURIComponent(username)}&jwtKey=${encodeURIComponent(token)}`);
+  liveSocket=ws;
+  ws.addEventListener('open',()=>status(`Conectado à live de @${username}.`,true));
+  ws.addEventListener('message',ev=>{
+    let msg; try { msg=JSON.parse(String(ev.data)); } catch { return; }
+    const d=msg?.data || {}, event=String(msg?.event || '').toLowerCase();
+    if (event==='chat') {
+      const id=uidOf(d), nickname=nameOf(d), comment=String(d.comment ?? '');
+      broadcast({type:'chat',userId:id,nickname,comment});
+      if (id && eligible.has(id) && currentAnswer && !answered.has(id) && norm(comment)===norm(currentAnswer)) {
+        answered.add(id); broadcast({type:'correct',userId:id,nickname,points:10});
+        broadcast({type:'roundStats',eligible:eligible.size,answered:answered.size});
+      }
+    } else if (event==='gift' && giftIsRose(d)) {
+      const id=uidOf(d); if (!id || eligible.has(id)) return;
+      const nickname=nameOf(d); eligible.set(id,nickname);
+      broadcast({type:'giftQualified',userId:id,nickname,count:eligible.size});
+      broadcast({type:'roundStats',eligible:eligible.size,answered:answered.size});
+    } else if (event==='like') {
+      broadcast({type:'like',nickname:nameOf(d),count:Number(d.likeCount||1)});
+    } else if (event==='member' || event==='join') {
+      broadcast({type:'member',nickname:nameOf(d)});
+    }
+  });
+  ws.addEventListener('error',()=>broadcast({type:'error',message:'Falha no WebSocket do provedor TikTools.'}));
+  ws.addEventListener('close',ev=>{ if(liveSocket===ws){liveSocket=null;status(`Conexão encerrada (${ev.code}). Confira se a avaliação/chave ainda está ativa.`); } });
+}
+wss.on('connection',client=>{
+  clients.add(client);
+  send(client,{type:'status',message:'Conector local pronto. Informe o usuário da live.',live:false});
+  client.on('message',async raw=>{
+    let m; try {m=JSON.parse(raw.toString())} catch {return;}
+    if(m.type==='connect') {
+      const username=String(m.username||'').trim().replace(/^@/,'');
+      if(!/^[a-zA-Z0-9._]{2,30}$/.test(username)){send(client,{type:'error',message:'Nome de usuário inválido.'});return;}
+      try { await connectLive(username); }
+      catch(e){ status(e.message,false); send(client,{type:'error',message:e.message}); }
+    }
+    if(m.type==='roundStart') {
+      round=Number(m.round||round+1); currentAnswer=String(m.answer||''); eligible.clear(); answered.clear();
+      broadcast({type:'roundStats',eligible:0,answered:0});
+    }
+    if(m.type==='roundEnd') { currentAnswer=''; }
+    if(m.type==='disconnect') { closeLive(); status('Desconectado.',false); }
+  });
+  client.on('close',()=>clients.delete(client));
+});
+server.listen(PORT,'127.0.0.1',()=>console.log(`Roleta Musical em http://127.0.0.1:${PORT}`));
